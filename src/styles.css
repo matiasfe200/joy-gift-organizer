@@ -62,9 +62,13 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
+  --radius: 1rem;
+  --background: oklch(0.985 0.015 80);
+  --foreground: oklch(0.35 0.08 20);
+  --font-display: "Great Vibes", "Pinyon Script", cursive;
+  --font-body: "Cormorant Garamond", Georgia, serif;
+  --gradient-rose: linear-gradient(135deg, oklch(0.78 0.12 15), oklch(0.7 0.16 10));
+  --shadow-soft: 0 10px 30px -10px oklch(0.7 0.16 10 / 0.3);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.129 0.042 264.695);
   --popover: oklch(1 0 0);
