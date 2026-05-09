@@ -14,7 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      gifts: {
+        Row: {
+          already_owned: boolean
+          claimed_at: string | null
+          claimed_by: string | null
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          already_owned?: boolean
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          already_owned?: boolean
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
