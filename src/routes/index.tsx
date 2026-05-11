@@ -236,7 +236,13 @@ function Index() {
     toast.message("Modo edição desativado.");
   };
 
-  const runAdmin = async (action: Parameters<typeof editFn>[0]["data"]["action"]) => {
+  type AdminAction =
+    | { type: "add"; name: string; already_owned: boolean }
+    | { type: "rename"; id: string; name: string }
+    | { type: "delete"; id: string }
+    | { type: "toggle_owned"; id: string; already_owned: boolean }
+    | { type: "unclaim"; id: string };
+  const runAdmin = async (action: AdminAction) => {
     if (!adminPin) return;
     setBusy(true);
     try {
