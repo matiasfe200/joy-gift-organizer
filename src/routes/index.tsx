@@ -1,8 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
+import { adminEditGift } from "@/lib/admin-gifts.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -41,9 +45,16 @@ import {
   Armchair,
   Archive,
   Layers,
+  Lock,
+  LockOpen,
+  Pencil,
+  Trash2,
+  Plus,
+  RotateCcw,
   type LucideIcon,
 } from "lucide-react";
 import invite from "@/assets/invite.jpeg";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -118,6 +129,26 @@ function Index() {
   const [submitting, setSubmitting] = useState(false);
   const [bursts, setBursts] = useState<Burst[]>([]);
 
+  // Admin / edit mode state
+  const editFn = useServerFn(adminEditGift);
+  const [adminPin, setAdminPin] = useState<string | null>(null);
+  const [pinOpen, setPinOpen] = useState(false);
+  const [pinValue, setPinValue] = useState("");
+  const [editing, setEditing] = useState<Gift | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editOwned, setEditOwned] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newOwned, setNewOwned] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const isAdmin = !!adminPin;
+
+  useEffect(() => {
+    const stored = sessionStorage.getItem("admin_pin");
+    if (stored) setAdminPin(stored);
+  }, []);
+
   useEffect(() => {
     supabase
       .from("gifts")
@@ -139,6 +170,14 @@ function Index() {
             setGifts((prev) =>
               prev.map((g) => (g.id === (payload.new as Gift).id ? (payload.new as Gift) : g))
             );
+          } else if (payload.eventType === "INSERT") {
+            setGifts((prev) =>
+              prev.some((g) => g.id === (payload.new as Gift).id)
+                ? prev
+                : [...prev, payload.new as Gift]
+            );
+          } else if (payload.eventType === "DELETE") {
+            setGifts((prev) => prev.filter((g) => g.id !== (payload.old as Gift).id));
           }
         }
       )
@@ -175,6 +214,109 @@ function Index() {
       setSelected(null);
       setGuestName("");
       triggerBurst();
+    }
+  };
+
+  const submitPin = () => {
+    const pin = pinValue.trim();
+    if (pin === "199408") {
+      setAdminPin(pin);
+      sessionStorage.setItem("admin_pin", pin);
+      setPinOpen(false);
+      setPinValue("");
+      toast.success("Modo edição ativado.");
+    } else {
+      toast.error("PIN incorreto.");
+    }
+  };
+
+  const lockAdmin = () => {
+    setAdminPin(null);
+    sessionStorage.removeItem("admin_pin");
+    toast.message("Modo edição desativado.");
+  };
+
+  type AdminAction =
+    | { type: "add"; name: string; already_owned: boolean }
+    | { type: "rename"; id: string; name: string }
+    | { type: "delete"; id: string }
+    | { type: "toggle_owned"; id: string; already_owned: boolean }
+    | { type: "unclaim"; id: string };
+  const runAdmin = async (action: AdminAction) => {
+    if (!adminPin) return;
+    setBusy(true);
+    try {
+      await editFn({ data: { pin: adminPin, action } });
+      // refetch para garantir sincronia (realtime cobre na maioria dos casos)
+      const { data } = await supabase
+        .from("gifts")
+        .select("*")
+        .order("already_owned", { ascending: true })
+        .order("name");
+      if (data) setGifts(data as Gift[]);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Erro ao salvar";
+      toast.error(msg);
+      if (msg.toLowerCase().includes("pin")) lockAdmin();
+      throw e;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openEdit = (g: Gift) => {
+    setEditing(g);
+    setEditName(g.name);
+    setEditOwned(g.already_owned);
+  };
+
+  const saveEdit = async () => {
+    if (!editing) return;
+    try {
+      if (editName.trim() && editName.trim() !== editing.name) {
+        await runAdmin({ type: "rename", id: editing.id, name: editName.trim() });
+      }
+      if (editOwned !== editing.already_owned) {
+        await runAdmin({ type: "toggle_owned", id: editing.id, already_owned: editOwned });
+      }
+      toast.success("Item atualizado.");
+      setEditing(null);
+    } catch {
+      /* toast already shown */
+    }
+  };
+
+  const deleteEditing = async () => {
+    if (!editing) return;
+    if (!confirm(`Excluir "${editing.name}"?`)) return;
+    try {
+      await runAdmin({ type: "delete", id: editing.id });
+      toast.success("Item removido.");
+      setEditing(null);
+    } catch {
+      /* */
+    }
+  };
+
+  const unclaim = async (g: Gift) => {
+    try {
+      await runAdmin({ type: "unclaim", id: g.id });
+      toast.success("Reserva desfeita.");
+    } catch {
+      /* */
+    }
+  };
+
+  const submitAdd = async () => {
+    if (!newName.trim()) return;
+    try {
+      await runAdmin({ type: "add", name: newName.trim(), already_owned: newOwned });
+      toast.success("Item adicionado.");
+      setNewName("");
+      setNewOwned(false);
+      setAdding(false);
+    } catch {
+      /* */
     }
   };
 
@@ -230,6 +372,34 @@ function Index() {
       </header>
 
       <main className="mx-auto max-w-6xl px-6 py-12">
+        {/* Admin toolbar */}
+        <div className="mb-6 flex flex-wrap items-center justify-end gap-2">
+          {isAdmin && (
+            <>
+              <span className="mr-auto inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                <LockOpen className="h-3.5 w-3.5" />
+                Modo edição ativo
+              </span>
+              <Button size="sm" variant="default" onClick={() => setAdding(true)}>
+                <Plus className="mr-1 h-4 w-4" /> Adicionar item
+              </Button>
+              <Button size="sm" variant="outline" onClick={lockAdmin}>
+                <Lock className="mr-1 h-4 w-4" /> Sair
+              </Button>
+            </>
+          )}
+          {!isAdmin && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-muted-foreground"
+              onClick={() => setPinOpen(true)}
+            >
+              <Lock className="mr-1 h-4 w-4" /> Editar lista
+            </Button>
+          )}
+        </div>
+
         {loading ? (
           <p className="text-center text-muted-foreground">Carregando lista...</p>
         ) : (
@@ -244,23 +414,41 @@ function Index() {
                 {available.map((g) => {
                   const Icon = iconFor(g.name);
                   return (
-                    <button
+                    <div
                       key={g.id}
-                      onClick={() => setSelected(g)}
-                      className="group flex items-center gap-4 rounded-2xl border border-border bg-card p-4 text-left transition-all hover:-translate-y-0.5 hover:border-primary hover:shadow-[var(--shadow-soft)]"
+                      className="group relative flex items-center gap-4 rounded-2xl border border-border bg-card p-4 transition-all hover:-translate-y-0.5 hover:border-primary hover:shadow-[var(--shadow-soft)]"
                     >
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-secondary text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                      <button
+                        type="button"
+                        onClick={() => setSelected(g)}
+                        className="absolute inset-0 rounded-2xl"
+                        aria-label={`Reservar ${g.name}`}
+                      />
+                      <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-secondary text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
                         <Icon className="h-6 w-6" />
                       </div>
-                      <div className="flex flex-1 items-center justify-between gap-2">
+                      <div className="relative flex flex-1 items-center justify-between gap-2">
                         <span className="text-lg text-card-foreground" style={{ fontFamily: "var(--font-body)" }}>
                           {g.name}
                         </span>
-                        <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground group-hover:bg-primary group-hover:text-primary-foreground">
-                          Escolher
-                        </span>
+                        {isAdmin ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEdit(g);
+                            }}
+                            className="relative z-10 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary hover:text-primary-foreground"
+                          >
+                            <Pencil className="h-3.5 w-3.5" /> Editar
+                          </button>
+                        ) : (
+                          <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground group-hover:bg-primary group-hover:text-primary-foreground">
+                            Escolher
+                          </span>
+                        )}
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
                 {available.length === 0 && (
@@ -281,12 +469,12 @@ function Index() {
                   return (
                     <div
                       key={g.id}
-                      className="flex items-center gap-4 rounded-2xl border border-border/60 bg-muted/40 p-4 opacity-80"
+                      className="flex items-center gap-4 rounded-2xl border border-border/60 bg-muted/40 p-4 opacity-90"
                     >
                       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-background/60 text-primary/70">
                         <Icon className="h-6 w-6" />
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <Check className="h-4 w-4 text-primary" />
                           <span className="text-lg line-through" style={{ fontFamily: "var(--font-body)" }}>
@@ -297,6 +485,27 @@ function Index() {
                           Reservado por {g.claimed_by}
                         </p>
                       </div>
+                      {isAdmin && (
+                        <div className="flex flex-col gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2 text-xs"
+                            onClick={() => unclaim(g)}
+                            disabled={busy}
+                          >
+                            <RotateCcw className="mr-1 h-3.5 w-3.5" /> Liberar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2 text-xs"
+                            onClick={() => openEdit(g)}
+                          >
+                            <Pencil className="mr-1 h-3.5 w-3.5" /> Editar
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -322,6 +531,16 @@ function Index() {
                     >
                       <Icon className="h-4 w-4 text-primary/70" />
                       {g.name}
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => openEdit(g)}
+                          className="ml-1 rounded-full p-1 text-primary/70 hover:bg-primary/10 hover:text-primary"
+                          aria-label={`Editar ${g.name}`}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </span>
                   );
                 })}
@@ -335,6 +554,7 @@ function Index() {
         Feito com <Heart className="inline h-3.5 w-3.5 text-primary" /> para Sara & Matias
       </footer>
 
+      {/* Reserve dialog */}
       <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
         <DialogContent>
           <DialogHeader>
@@ -359,6 +579,145 @@ function Index() {
             </Button>
             <Button onClick={handleClaim} disabled={!guestName.trim() || submitting}>
               {submitting ? "Reservando..." : "Confirmar reserva"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* PIN dialog */}
+      <Dialog
+        open={pinOpen}
+        onOpenChange={(o) => {
+          setPinOpen(o);
+          if (!o) setPinValue("");
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-primary">
+              <Lock className="h-5 w-5" /> Acesso restrito
+            </DialogTitle>
+            <DialogDescription>
+              Digite o PIN para liberar a edição da lista.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            type="password"
+            inputMode="numeric"
+            placeholder="PIN"
+            value={pinValue}
+            onChange={(e) => setPinValue(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && submitPin()}
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPinOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={submitPin} disabled={!pinValue.trim()}>
+              Entrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit item dialog */}
+      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-primary">
+              <Pencil className="h-5 w-5" /> Editar item
+            </DialogTitle>
+            <DialogDescription>
+              Altere o nome, mude a categoria ou exclua o item.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Nome</Label>
+              <Input
+                id="edit-name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                maxLength={120}
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-border p-3">
+              <div>
+                <Label htmlFor="edit-owned" className="text-sm font-medium">
+                  Já temos este item
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Move para a seção "Itens que já temos".
+                </p>
+              </div>
+              <Switch id="edit-owned" checked={editOwned} onCheckedChange={setEditOwned} />
+            </div>
+            {editing?.claimed_by && (
+              <p className="text-xs text-muted-foreground">
+                Reservado por <strong>{editing.claimed_by}</strong>
+              </p>
+            )}
+          </div>
+          <DialogFooter className="sm:justify-between">
+            <Button variant="destructive" onClick={deleteEditing} disabled={busy}>
+              <Trash2 className="mr-1 h-4 w-4" /> Excluir
+            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setEditing(null)}>
+                Cancelar
+              </Button>
+              <Button onClick={saveEdit} disabled={busy || !editName.trim()}>
+                Salvar
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add item dialog */}
+      <Dialog
+        open={adding}
+        onOpenChange={(o) => {
+          setAdding(o);
+          if (!o) {
+            setNewName("");
+            setNewOwned(false);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-primary">
+              <Plus className="h-5 w-5" /> Novo item
+            </DialogTitle>
+            <DialogDescription>Adicione um item à lista.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-name">Nome</Label>
+              <Input
+                id="new-name"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && submitAdd()}
+                maxLength={120}
+                autoFocus
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-border p-3">
+              <Label htmlFor="new-owned" className="text-sm font-medium">
+                Já temos este item
+              </Label>
+              <Switch id="new-owned" checked={newOwned} onCheckedChange={setNewOwned} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAdding(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={submitAdd} disabled={busy || !newName.trim()}>
+              Adicionar
             </Button>
           </DialogFooter>
         </DialogContent>
