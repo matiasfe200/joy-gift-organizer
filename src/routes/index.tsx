@@ -1,8 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
+import { adminEditGift } from "@/lib/admin-gifts.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -41,9 +45,16 @@ import {
   Armchair,
   Archive,
   Layers,
+  Lock,
+  LockOpen,
+  Pencil,
+  Trash2,
+  Plus,
+  RotateCcw,
   type LucideIcon,
 } from "lucide-react";
 import invite from "@/assets/invite.jpeg";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
