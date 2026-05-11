@@ -13,7 +13,36 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
-import { Check, Gift, Heart, Sparkles } from "lucide-react";
+import {
+  Check,
+  Gift as GiftIcon,
+  Heart,
+  Sparkles,
+  Bed,
+  Tv,
+  Sofa,
+  Shirt,
+  Refrigerator,
+  WashingMachine,
+  Microwave,
+  Flame,
+  CookingPot,
+  Utensils,
+  UtensilsCrossed,
+  Coffee,
+  GlassWater,
+  Sandwich,
+  Soup,
+  Cookie,
+  Fan,
+  Package,
+  Blinds,
+  Bath,
+  Armchair,
+  Archive,
+  Layers,
+  type LucideIcon,
+} from "lucide-react";
 import invite from "@/assets/invite.jpeg";
 
 export const Route = createFileRoute("/")({
@@ -38,12 +67,56 @@ type Gift = {
   claimed_at: string | null;
 };
 
+const ICONS: Record<string, LucideIcon> = {
+  "Cama": Bed,
+  "Cabeceira da cama": Bed,
+  "Mesa de jantar": Armchair,
+  "Painel da TV": Tv,
+  "TV": Tv,
+  "Armário de cozinha": Archive,
+  "Máquina de lavar": WashingMachine,
+  "Fogão cooktop": Flame,
+  "Geladeira": Refrigerator,
+  "Sofá": Sofa,
+  "Guarda-roupas": Shirt,
+  "Base/balcão do cooktop": Flame,
+  "Tanquinho de lavar roupa": WashingMachine,
+  "Panela de pressão": CookingPot,
+  "Jogo de panelas": CookingPot,
+  "Frigideira": CookingPot,
+  "Assadeiras": Cookie,
+  "Air fryer": Microwave,
+  "Forno elétrico": Microwave,
+  "Micro-ondas": Microwave,
+  "Sanduicheira": Sandwich,
+  "Liquidificador": Soup,
+  "Cafeteira": Coffee,
+  "Escorredor de pratos": UtensilsCrossed,
+  "Jogo de pratos": UtensilsCrossed,
+  "Copos": GlassWater,
+  "Talheres": Utensils,
+  "Potes organizadores": Package,
+  "Cobertas": Bed,
+  "Cortinas": Blinds,
+  "Toalhas": Bath,
+  "Tábua de passar roupa": Shirt,
+  "Ventilador": Fan,
+  "Tapetes": Layers,
+};
+
+function iconFor(name: string): LucideIcon {
+  return ICONS[name] ?? GiftIcon;
+}
+
+type Burst = { id: number; left: number; top: number };
+
 function Index() {
   const [gifts, setGifts] = useState<Gift[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Gift | null>(null);
   const [guestName, setGuestName] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [bursts, setBursts] = useState<Burst[]>([]);
 
   useEffect(() => {
     supabase
@@ -76,6 +149,14 @@ function Index() {
     };
   }, []);
 
+  const triggerBurst = () => {
+    const id = Date.now();
+    setBursts((b) => [...b, { id, left: 50, top: 60 }]);
+    setTimeout(() => {
+      setBursts((b) => b.filter((x) => x.id !== id));
+    }, 2600);
+  };
+
   const handleClaim = async () => {
     if (!selected || !guestName.trim()) return;
     setSubmitting(true);
@@ -93,6 +174,7 @@ function Index() {
       toast.success(`Obrigada, ${guestName.trim()}! Presente reservado com carinho. 💕`);
       setSelected(null);
       setGuestName("");
+      triggerBurst();
     }
   };
 
@@ -154,27 +236,33 @@ function Index() {
           <>
             <Section
               title="Disponíveis para presentear"
-              icon={<Gift className="h-5 w-5" />}
+              icon={<GiftIcon className="h-5 w-5" />}
               count={available.length}
               subtitle="Toque em um item para reservá-lo"
             >
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {available.map((g) => (
-                  <button
-                    key={g.id}
-                    onClick={() => setSelected(g)}
-                    className="group rounded-2xl border border-border bg-card p-5 text-left transition-all hover:-translate-y-0.5 hover:border-primary hover:shadow-[var(--shadow-soft)]"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <span className="text-lg text-card-foreground" style={{ fontFamily: "var(--font-body)" }}>
-                        {g.name}
-                      </span>
-                      <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground group-hover:bg-primary group-hover:text-primary-foreground">
-                        Escolher
-                      </span>
-                    </div>
-                  </button>
-                ))}
+                {available.map((g) => {
+                  const Icon = iconFor(g.name);
+                  return (
+                    <button
+                      key={g.id}
+                      onClick={() => setSelected(g)}
+                      className="group flex items-center gap-4 rounded-2xl border border-border bg-card p-4 text-left transition-all hover:-translate-y-0.5 hover:border-primary hover:shadow-[var(--shadow-soft)]"
+                    >
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-secondary text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                        <Icon className="h-6 w-6" />
+                      </div>
+                      <div className="flex flex-1 items-center justify-between gap-2">
+                        <span className="text-lg text-card-foreground" style={{ fontFamily: "var(--font-body)" }}>
+                          {g.name}
+                        </span>
+                        <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground group-hover:bg-primary group-hover:text-primary-foreground">
+                          Escolher
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
                 {available.length === 0 && (
                   <p className="text-muted-foreground">Tudo já foi escolhido — obrigada! 💕</p>
                 )}
@@ -188,22 +276,30 @@ function Index() {
               subtitle="Esses presentes já foram escolhidos com carinho"
             >
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {claimed.map((g) => (
-                  <div
-                    key={g.id}
-                    className="rounded-2xl border border-border/60 bg-muted/40 p-5 opacity-80"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Check className="h-4 w-4 text-primary" />
-                      <span className="text-lg line-through" style={{ fontFamily: "var(--font-body)" }}>
-                        {g.name}
-                      </span>
+                {claimed.map((g) => {
+                  const Icon = iconFor(g.name);
+                  return (
+                    <div
+                      key={g.id}
+                      className="flex items-center gap-4 rounded-2xl border border-border/60 bg-muted/40 p-4 opacity-80"
+                    >
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-background/60 text-primary/70">
+                        <Icon className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Check className="h-4 w-4 text-primary" />
+                          <span className="text-lg line-through" style={{ fontFamily: "var(--font-body)" }}>
+                            {g.name}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          Reservado por {g.claimed_by}
+                        </p>
+                      </div>
                     </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Reservado por {g.claimed_by}
-                    </p>
-                  </div>
-                ))}
+                  );
+                })}
                 {claimed.length === 0 && (
                   <p className="text-muted-foreground">Ninguém escolheu ainda — seja o primeiro!</p>
                 )}
@@ -217,14 +313,18 @@ function Index() {
               subtitle="Estes itens dispensam — já fazem parte do nosso lar"
             >
               <div className="flex flex-wrap gap-2">
-                {owned.map((g) => (
-                  <span
-                    key={g.id}
-                    className="rounded-full border border-border bg-card px-4 py-2 text-sm text-muted-foreground"
-                  >
-                    {g.name}
-                  </span>
-                ))}
+                {owned.map((g) => {
+                  const Icon = iconFor(g.name);
+                  return (
+                    <span
+                      key={g.id}
+                      className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-2 text-sm text-muted-foreground"
+                    >
+                      <Icon className="h-4 w-4 text-primary/70" />
+                      {g.name}
+                    </span>
+                  );
+                })}
               </div>
             </Section>
           </>
@@ -263,7 +363,62 @@ function Index() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Floating S&M hearts overlay */}
+      <div className="pointer-events-none fixed inset-0 z-[100] overflow-hidden">
+        {bursts.map((b) => (
+          <HeartBurst key={b.id} />
+        ))}
+      </div>
     </div>
+  );
+}
+
+function HeartBurst() {
+  const hearts = Array.from({ length: 14 });
+  return (
+    <>
+      {hearts.map((_, i) => {
+        const dx = (Math.random() - 0.5) * 320;
+        const rot = (Math.random() - 0.5) * 50;
+        const size = 36 + Math.random() * 56;
+        const delay = Math.random() * 0.4;
+        const left = 50 + (Math.random() - 0.5) * 30;
+        return (
+          <div
+            key={i}
+            className="animate-heart-float absolute"
+            style={{
+              left: `${left}%`,
+              top: "70%",
+              ["--dx" as never]: `${dx}px`,
+              ["--r" as never]: `${rot}deg`,
+              animationDelay: `${delay}s`,
+            }}
+          >
+            <div className="relative" style={{ width: size, height: size }}>
+              <Heart
+                className="absolute inset-0 text-primary"
+                style={{ width: size, height: size }}
+                fill="currentColor"
+                strokeWidth={1}
+              />
+              <span
+                className="absolute inset-0 flex items-center justify-center text-primary-foreground"
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontSize: size * 0.45,
+                  paddingTop: size * 0.08,
+                  textShadow: "0 1px 2px rgba(0,0,0,0.15)",
+                }}
+              >
+                S&amp;M
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </>
   );
 }
 
