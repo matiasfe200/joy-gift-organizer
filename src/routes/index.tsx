@@ -193,7 +193,7 @@ function Index() {
     setBursts((b) => [...b, { id, left: 50, top: 60 }]);
     setTimeout(() => {
       setBursts((b) => b.filter((x) => x.id !== id));
-    }, 2600);
+    }, 5200);
   };
 
   const handleClaim = async () => {
