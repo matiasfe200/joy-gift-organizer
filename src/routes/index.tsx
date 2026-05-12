@@ -726,30 +726,40 @@ function Index() {
       {/* Floating S&M hearts overlay */}
       <div className="pointer-events-none fixed inset-0 z-[100] overflow-hidden">
         {bursts.map((b) => (
-          <HeartBurst key={b.id} />
+          <CelebrationOverlay key={b.id} />
         ))}
       </div>
     </div>
   );
 }
 
-function HeartBurst() {
-  const hearts = Array.from({ length: 14 });
+function CelebrationOverlay() {
+  const hearts = Array.from({ length: 28 });
   return (
     <>
+      {/* Soft radial backdrop */}
+      <div
+        className="animate-celebration-backdrop absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(circle at 50% 55%, oklch(0.7 0.16 10 / 0.18), transparent 60%)",
+        }}
+      />
+
+      {/* Floating hearts */}
       {hearts.map((_, i) => {
-        const dx = (Math.random() - 0.5) * 320;
-        const rot = (Math.random() - 0.5) * 50;
-        const size = 36 + Math.random() * 56;
-        const delay = Math.random() * 0.4;
-        const left = 50 + (Math.random() - 0.5) * 30;
+        const dx = (Math.random() - 0.5) * 480;
+        const rot = (Math.random() - 0.5) * 60;
+        const size = 28 + Math.random() * 56;
+        const delay = Math.random() * 1.2;
+        const left = 50 + (Math.random() - 0.5) * 70;
         return (
           <div
             key={i}
             className="animate-heart-float absolute"
             style={{
               left: `${left}%`,
-              top: "70%",
+              top: "75%",
               ["--dx" as never]: `${dx}px`,
               ["--r" as never]: `${rot}deg`,
               animationDelay: `${delay}s`,
@@ -777,6 +787,43 @@ function HeartBurst() {
           </div>
         );
       })}
+
+      {/* Final centered heart with thank-you message */}
+      <div
+        className="animate-final-heart absolute"
+        style={{ left: "50%", top: "50%" }}
+      >
+        <div className="flex flex-col items-center">
+          <div className="relative animate-heart-pulse" style={{ width: 220, height: 220 }}>
+            <Heart
+              className="absolute inset-0 text-primary"
+              style={{ width: 220, height: 220 }}
+              fill="currentColor"
+              strokeWidth={1}
+            />
+            <span
+              className="absolute inset-0 flex items-center justify-center text-primary-foreground"
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: 96,
+                paddingTop: 18,
+                textShadow: "0 2px 6px rgba(0,0,0,0.25)",
+              }}
+            >
+              S&amp;M
+            </span>
+          </div>
+          <p
+            className="mt-4 max-w-xs text-center text-2xl text-primary"
+            style={{
+              fontFamily: "var(--font-body)",
+              textShadow: "0 1px 10px oklch(0.985 0.015 80 / 0.9)",
+            }}
+          >
+            Agradecemos por ajudar em nossa história
+          </p>
+        </div>
+      </div>
     </>
   );
 }
